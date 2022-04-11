@@ -1,0 +1,13 @@
+# detect the object of concern
+# estimate the depth of the object field
+# 解析模型的时候需要将no = nc + 5 + 1
+# Detect层 输出也需要no = nc + 5 + 1
+
+path: E:/KITTI/ObjectDetection/detect_depth_estimate/yolo_data
+train: images/train
+val: images/val
+test: ../testing/image_2 # test images
+
+nc: 2  # number of classes
+
+names: ['person', 'truck']  # class names

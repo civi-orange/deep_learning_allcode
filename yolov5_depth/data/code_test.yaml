@@ -1,0 +1,10 @@
+
+
+path: E:/KITTI/ObjectDetection/detect_depth_estimate/code_test_data
+train: images/train
+val: images/val
+test:  # test images
+
+nc: 2  # number of classes
+
+names: ['person', 'truck']  # class names
