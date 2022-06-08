@@ -6,7 +6,7 @@ import numpy as np
 from utils.little_function import *
 
 
-def get_region_depth(frame_src, frame_dst, map_object, flag=0):
+def get_region_depth(frame_src, frame_dst, map_object):
     """
     :param frame_src:
     :param frame_dst:
@@ -15,10 +15,9 @@ def get_region_depth(frame_src, frame_dst, map_object, flag=0):
     :return:
     """
     depth = [5000]  # default value
-    if flag == 0:
-        region = np.zeros_like(frame_src)
-    else:
-        region = np.zeros_like(frame_dst)
+
+    region = np.zeros_like(frame_src)
+
     size = 80
     try:
         #  The current code does not guarantee that the two sets of points correspond to each other,
@@ -33,7 +32,7 @@ def get_region_depth(frame_src, frame_dst, map_object, flag=0):
     # 根据点对，计算出深度：即目标离相机的距离
     try:
         if len(p_src) == len(p_dst) and len(p_src) != 0 and len(p_dst) != 0:
-            if flag == 0:
+            if map_object.flag == 0:
                 distance = map_object.get_depth(p_src, p_dst)
             else:
                 distance = map_object.get_depth(p_dst, p_src)
@@ -91,25 +90,32 @@ class ImageMapping:
         new_h = h_s
         new_w = round(h_s * wh_rate)
         if new_w - w_s > 0:
-            new_src = np.concatenate((np.zeros((new_h, new_w - w_s)), image_src), axis=1)
-            new_region = np.concatenate((np.zeros((new_h, new_w - w_s)), region), axis=1)
+            new_src = np.concatenate((np.zeros((new_h, new_w - w_s)).astype('uint8'), image_src), axis=1)
+            new_region = np.concatenate((np.zeros((new_h, new_w - w_s)).astype('uint8'), region), axis=1)
         else:
             new_src = image_src[:, w_s - new_w:]
             new_region = region[:, w_s - new_w:]
 
-        rate = [new_h / h_d, new_w / w_d]  # (h_rate, w_rate)
+        rate = [new_h / h_d, new_w / w_d]  # (h_rate, w_rate) ---scale
         trans = [new_h - h_s, new_w - w_s]  # 偏移量
 
-        # new Kl
-        new_Kl = self.Kl.copy()
-        new_Kl[0][2] += trans[1]
-        new_Kl[0][1] += trans[0]
-
-        # new Kr
-        new_Kr = self.Kr.copy()
-        rate_arr = np.expand_dims(np.append(rate, 1), axis=1)
-        rate_arr = np.concatenate((rate_arr, rate_arr, rate_arr), axis=1)
-        new_Kr = np.multiply(new_Kr, rate_arr)
+        # new Kl  new Kr
+        if self.flag == 0:
+            new_Kl = self.Kl.copy()
+            new_Kl[0][2] += trans[1]
+            new_Kl[0][1] += trans[0]
+            new_Kr = self.Kr.copy()
+            rate_arr = np.expand_dims(np.append(rate, 1), axis=1)
+            rate_arr = np.concatenate((rate_arr, rate_arr, rate_arr), axis=1)
+            new_Kr = np.multiply(new_Kr, rate_arr)
+        else:
+            new_Kl = self.Kl.copy()
+            rate_arr = np.expand_dims(np.append(rate, 1), axis=1)
+            rate_arr = np.concatenate((rate_arr, rate_arr, rate_arr), axis=1)
+            new_Kl = np.multiply(new_Kl, rate_arr)
+            new_Kr = self.Kr.copy()
+            new_Kr[0][2] += trans[1]
+            new_Kr[0][1] += trans[0]
 
         return new_src, new_region, new_Kr, new_Kl
 
@@ -201,7 +207,6 @@ class ImageMapping:
         return depth
 
     def fusion(self, image_src, image_dst, region=None, depth=0):
-
         new_src, new_region, new_Kr, new_Kl = self.image_align(image_src, image_dst, region)
 
         _new_Kl = np.linalg.inv(new_Kl)
@@ -215,7 +220,7 @@ class ImageMapping:
         if self.flag == 0:
             mask, result_ = self.xy_trans(xy_input, _new_Kl, new_Kr, self.RT, depth, (w, h))
         else:
-            mask, result_ = self.xy_trans_rl(xy_input, self.Kl, np.linalg.inv(self.Kr), self.R, self.T, depth, (w, h))
+            mask, result_ = self.xy_trans_rl(xy_input, new_Kl, np.linalg.inv(new_Kr), self.R, self.T, depth, (w, h))
 
         src_ = xy_input[mask]
         img = np.zeros_like(new_src)
