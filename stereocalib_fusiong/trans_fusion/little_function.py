@@ -74,10 +74,49 @@ def gen_circle_center(frame, win_name="circle"):
             center.append(i[1])
             radius.append(i[2])
         center = np.array(center).reshape(-1, 2)
-        print("图中圆的个数为：", len(circles))
+        # print("图中圆的个数为：", len(circles))
         # cv2.imshow(win_name, cimg)
         # cv2.waitKey(1)
         return center, radius
+
+
+def line_frame(frame: np.array, line_h_number=3, line_w_number=3, color=(255, 0, 0)):
+    """
+    给图像frame宫格分块
+    :param frame: 图像输入
+    :param line_h_number: h方向均分线条数
+    :param line_w_number: w方向均分线条数
+    :return: 画好宫格的图像
+    """
+    frame_copy = frame.copy()
+    step_h = int(frame_copy.shape[0] / line_h_number)
+    step_w = int(frame_copy.shape[1] / line_w_number)
+    for i in range(step_h, frame_copy.shape[0], step_h):
+        frame_copy = cv2.line(frame_copy, (0, i), (frame_copy.shape[1], i), color, 1)
+    for i in range(step_w, frame_copy.shape[1], step_w):
+        frame_copy = cv2.line(frame_copy, (i, 0), (i, frame_copy.shape[0]), color, 1)
+
+    return frame_copy
+
+
+def cross_frame(frame: np.array, line_h_number=3, line_w_number=3, color=(255, 0, 0)):
+    """
+    给图像frame画十字点
+    :param frame:
+    :param line_h_number:
+    :param line_w_number:
+    :param color:
+    :return:
+    """
+    step_h = int(frame.shape[0] / line_h_number)
+    step_w = int(frame.shape[1] / line_w_number)
+    for i in range(step_h, frame.shape[1], step_h):
+        for j in range(step_w, frame.shape[1], step_w):
+            frame = cv2.line(frame, (i - 30, j), (i + 30, j), color, 2)
+            frame = cv2.line(frame, (i, j - 30), (i, j + 30), color, 2)
+            frame = cv2.circle(frame, (i, j), 4, color, 5)
+
+    return frame
 
 
 def save(image, num, file_path=None):
