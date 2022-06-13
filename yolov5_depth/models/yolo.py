@@ -11,6 +11,8 @@ import sys
 from copy import deepcopy
 from pathlib import Path
 
+import torch
+
 from models.common import *
 from models.experimental import *
 from utils.autoanchor import check_anchor_order
@@ -58,15 +60,19 @@ class Detect(nn.Module):
                 if self.onnx_dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
 
-                y = x[i].sigmoid()
+                # 前向传播输出Detect层，处理最后结果
+                y_new = x[i]
+                y = y_new[..., :-1].sigmoid()
+                depth = y_new[..., -1]
                 if self.inplace:
                     y[..., 0:2] = (y[..., 0:2] * 2 - 0.5 + self.grid[i]) * self.stride[i]  # xy   #中心点的坐标：原图比例
                     y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh    # 宽高也为原图比例
+                    y_new = torch.cat((y, depth[..., None]), -1)
                 else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
                     xy = (y[..., 0:2] * 2 - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
-                    y = torch.cat((xy, wh, y[..., 4:]), -1)
-                z.append(y.view(bs, -1, self.no))
+                    y_new = torch.cat((xy, wh, y[..., 4:], depth[..., None]), -1)
+                z.append(y_new.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)
 
@@ -329,7 +335,8 @@ if __name__ == '__main__':
     # LOGGER.info("Run 'tensorboard --logdir=models' to view tensorboard at http://localhost:6006/")
     # tb_writer.add_graph(torch.jit.trace(model, img, strict=False), [])  # add model graph
 
-    # 查看网络模型
+    # 查看网络模型  # 终端输入netron  打开host网页 拖入mm.pt
     # x = torch.randn(1, 3, 640, 640).to(device)
     # script_model = torch.jit.trace(model, x)
-    # script_model.save("../mm.pt")
+    # script_model.save("../mms.pt")
+
