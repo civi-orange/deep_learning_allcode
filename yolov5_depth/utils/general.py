@@ -755,7 +755,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float(), depth[i, None]), 1)  #
         else:  # best class only
             conf, j = x[:, 5:-1].max(1, keepdim=True)
-            x = torch.cat((box, conf, j.float(), depth), 1)[conf.view(-1) > conf_thres]
+            x = torch.cat((box, conf, j.float(), depth[:, None]), 1)[conf.view(-1) > conf_thres]
         # Filter by class
         if classes is not None:
             x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]

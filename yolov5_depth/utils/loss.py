@@ -138,7 +138,7 @@ class ComputeLoss:
                 # Regression
                 # 将预测值转换成box，并计算预测框和gt框的iou损失。
                 pxy = ps[:, :2].sigmoid() * 2 - 0.5
-                pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]  # ####################################
+                pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]  # 定位激活公式，anchors表示3个检测层anchor
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
                 lbox += (1.0 - iou).mean()  # iou loss
@@ -169,13 +169,13 @@ class ComputeLoss:
                 # with open('targets.txt', 'a') as file:
                 #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
-                # depth
-                pre_depth = ps[:, -1]
+                # depth  # pre_depth = ps[:, -1]
                 mse_l = torch.nn.MSELoss()
-                ldepth += torch.log(1 + mse_l(pre_depth, tdepth[i]))
-                # ldepth += mse_l(pre_depth, tdepth[i])
+                # ldepth += mse_l(ps[:, -1], tdepth[i])
+                ldepth += torch.log(1 + mse_l(ps[:, -1], tdepth[i]))
+
                 # L1_l = torch.nn.L1Loss()
-                # ldepth += L1_l(ps[:, -1], tdepth[i]) # L1损失在视差不连续处是鲁棒的并且对异常值或噪声具有低灵敏度
+                # ldepth += L1_l(ps[:, -1], tdepth[i])  # L1损失在视差不连续处是鲁棒的并且对异常值或噪声具有低灵敏度
             # only balance P3-P5; iou of preds and targets is the target of BCE.
             # pi[..., 4] 是前景的预测值，‘1’代表肯定是前景。这里单独计算一个前景预测的损失，还要乘以一个系数。
             # lobj损失包括正负样本的损失，如此训练，使得负样本处的预测值接近0.
@@ -202,8 +202,9 @@ class ComputeLoss:
         na, nt = self.na, targets.shape[0]  # number of anchors, targets
         tcls, tbox, indices, anch, tdepth = [], [], [], [], []
         gain = torch.ones(8, device=targets.device)  # normalized to gridspace gain
-        # ai is matrix: [[0,0,...,0], [1,1,...,1], [2,2,...,2]], ai.shape = (na, nt)
+        # ai is matrix: [[0,0,...,0], [1,1,...,1], [2,2,...,2]], ai.shape = (na, nt) 生成一个ai，shape为（na,nt)
         ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
+
         # after repeat, targets.shape = (na, nt, 6), after cat, targets.shape = (na, nt, 7)
         # 将targets扩充至(na, nt, 7)，也就是每个anchor与每个targets都有对应，为了接下来计算损失用
         # targets的值[[[image,class,x,y,w,h,0,depth],      ---depth
@@ -216,6 +217,8 @@ class ComputeLoss:
         #              [image,class,x,y,w,h,2,depth],  ---depth
         #                   ...		共nt个    ]
         #          ]
+        # ai[:, :, None]将ai扩展成shape（na, nt, 1）
+        # targets.repeat(na, 1, 1) 将target在深度channel上扩展为na即 target.shape (a, b)->(na, a, b)
         targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # append anchor indices
 
         g = 0.5  # bias
@@ -245,7 +248,7 @@ class ComputeLoss:
             # Match targets to anchors, before mul gain, targets is normalized. t.shape = (na, nt, 7)
             # 将提前归一化的targets转变成当前feature map下的绝对尺寸
             t = targets * gain
-            if nt:
+            if nt:  # number of target == target.shape[0]
                 # Matches, t[:, :, 4:6].shape=(na, nt, 2), anchors[:, None].shape=(3, 1, 2)
                 # 在当前feature map下，绝对尺寸的targets / 绝对尺寸的anchor，得到所有目标对于所有anchor的长宽的比例。
                 r = t[:, :, 4:6] / anchors[:, None]  # wh ratio

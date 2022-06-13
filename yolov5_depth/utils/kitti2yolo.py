@@ -90,7 +90,7 @@ def label_kitti2yolo():  # add the depth at the end
                 mid = np.median(depth_rect_)
                 # mean = np.mean(depth_rect_)
                 if np.isnan(mid):
-                    mid = 8888888  # 没有深度数据内容
+                    mid = 100*1000  # 没有深度数据内容
                 x = (float(line[6]) + float(line[4])) / 2. / width
                 y = (float(line[7]) + float(line[5])) / 2. / height
                 w = (float(line[6]) - float(line[4])) / width

@@ -6,6 +6,7 @@ import os
 import math
 from tqdm import tqdm
 
+
 def draw_box_in_single_image(image_path, txt_path):
     # 读取图像
     image = cv2.imread(image_path)
