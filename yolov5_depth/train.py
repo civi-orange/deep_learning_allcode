@@ -76,7 +76,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     (w.parent if evolve else w).mkdir(parents=True, exist_ok=True)  # make dir
     last, best = w / 'last.pt', w / 'best.pt'
     depth_best = w / 'depth_best.pt'
-
+    save_pt_path = 'runs/train/second'
     # Hyperparameters
     if isinstance(hyp, str):
         with open(hyp, errors='ignore') as f:
@@ -404,13 +404,16 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                         'date': datetime.now().isoformat()}
 
                 ckpt_depth = {
-                    'model': deepcopy(de_parallel(model).state_dict())  # only save the dict of model??
+                    'model': deepcopy(de_parallel(model).state_dict()),  # only save the dict of model??
+                    'ema': deepcopy(ema.ema).state_dict().half(),
+                    'updates': ema.updates,
                 }
 
                 # Save last, best and delete
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
+                    torch.save(ckpt, save_pt_path + '/best_{}'.format(epoch))
                     torch.save(ckpt_depth, depth_best)  # depth save, other for test code
                 if (epoch > 0) and (opt.save_period > 0) and (epoch % opt.save_period == 0):
                     torch.save(ckpt, w / f'epoch{epoch}.pt')
